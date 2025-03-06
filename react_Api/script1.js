@@ -11,7 +11,12 @@ function SearchBar({ search, setSearch, handleSearch }) {
     );
 }
 
-function StudentTable({ students, handleDelete, handleEdit, selectedStudents, handleCheckboxChange }) {
+function StudentTable({ students, handleDelete, handleEdit, selectedStudents, handleCheckboxChange, page, setPage, totalPage }) {
+    let pages = [];
+    for (let i = 1; i <= totalPage; i++) {
+        pages.push(i);
+    }
+
     return (
         <div id="studentTable">
             <table>  
@@ -47,6 +52,14 @@ function StudentTable({ students, handleDelete, handleEdit, selectedStudents, ha
                 ))}
                 </tbody>  
             </table>
+            <div>
+                <button hidden={page == 1} onClick={() => setPage(1)}>Trang đầu</button>
+                {pages.map(num => (
+                    <button key={num} onClick={() => setPage(num)} 
+                        style={{ fontWeight: page == num ? "bold" : "normal" }} >{num}</button>
+                ))}
+                <button hidden={page == totalPage} onClick={() => setPage(totalPage)}>Trang cuối</button>
+            </div>
         </div>
     );
 }
@@ -96,22 +109,20 @@ function App() {
     const [sinhViens, setSinhViens] = React.useState([]);
     const [form, setForm] = React.useState({ maSinhVien: "", tenSinhVien: "", ngaySinh: "", gioiTinh: "", maKhoa: "", isEditing: false });
     const [search, setSearch] = React.useState("");
-    const [filteredStudents, setFilteredStudents] = React.useState([]);
     const [selectedStudents, setSelectedStudents] = React.useState([]);
+    const [page, setPage] = React.useState(1);
+    const [totalPage, setTotalPage] = React.useState(1);
 
     React.useEffect(() => {
-        fetchStudents();
+        fetchStudents(search, page);
         fetchFaculties();
-    }, []);
+    }, [page]);
 
-    React.useEffect(() => {
-        setFilteredStudents(sinhViens);
-    }, [sinhViens]);
-
-    const fetchStudents = async () => {
+    const fetchStudents = async (search, page) => {
         try {
-            const response = await axios.get("https://localhost:7006/api/Student");
-            setSinhViens(response.data);
+            const response = await axios.get(`https://localhost:7006/api/Student?keyword=${search}&page=${page}`);
+            setSinhViens(response.data.students);
+            setTotalPage(response.data.totalPage);
         } catch (error) {
             console.error("Lỗi khi lấy danh sách sinh viên", error);
         }
@@ -139,14 +150,16 @@ function App() {
         try {
             if (form.isEditing) {
                 await axios.put(`https://localhost:7006/api/Student/${form.maSinhVien}`, form);
-                setSinhViens(sinhViens.map(sv => (sv.maSinhVien === form.maSinhVien ? form : sv)));
+                fetchStudents(search, page);
             } else {
+
                 if ( sinhViens.find(sv => sv.maSinhVien == form.maSinhVien)) {
                     alert("Mã sinh viên đã có, vui lòng nhập mã sinh viên khác !");
                     return;
                 }
+
                 await axios.post("https://localhost:7006/api/Student", form);
-                setSinhViens([...sinhViens, { ...form }]);
+                fetchStudents(search, page);
             }
 
             setForm({ maSinhVien: "", tenSinhVien: "", ngaySinh: "", gioiTinh: "", maKhoa: "", isEditing: false });
@@ -200,17 +213,8 @@ function App() {
     };
 
     const handleSearch = async () => {
-        const keyword = search.trim().toLowerCase();
-        if (keyword === "") {
-            setFilteredStudents(sinhViens);
-        } else {
-            try {
-                const response = await axios.get(`https://localhost:7006/api/Student/search/?keyword=${keyword}`);
-                setFilteredStudents(response.data);
-            } catch (error) {
-                console.error("Lỗi tìm kiếm ", error);
-            }
-        }
+        setPage(1);
+        fetchStudents(search, page);
     };
 
     const handleReset = () => {
@@ -220,8 +224,8 @@ function App() {
     return (
         <div>
             <SearchBar search={search} setSearch={setSearch} handleSearch={handleSearch} />
-            <StudentTable students={filteredStudents} handleDelete={handleDelete} handleEdit={handleEdit} selectedStudents={selectedStudents} 
-            handleCheckboxChange={handleCheckboxChange}  />
+            <StudentTable students={sinhViens} handleDelete={handleDelete} handleEdit={handleEdit} selectedStudents={selectedStudents} 
+            handleCheckboxChange={handleCheckboxChange} page={page} setPage={setPage} totalPage={totalPage} />
             <StudentForm form={form} handleChange={handleChange} handleSubmit={handleSubmit} handleReset={handleReset} handleMultipleDelete={handleMultipleDelete} />
         </div>
     );
