@@ -17,8 +17,9 @@ namespace WebAPI_StudentList.Data
 
         [Required]
         public string? MaKhoa { get; set;}
-
-        [ForeignKey("MaKhoa")]
         public virtual Faculty? MaKhoaNavigation { get; set;}
+
+        public string? UserId { get; set; }
+        public virtual ApplicationUser? UserIdNavigation { get; set; }
     }
 }

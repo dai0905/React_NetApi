@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WebAPI.Helpers;
 using WebAPI_StudentList.Data;
 using WebAPI_StudentList.Models;
 
@@ -46,6 +48,7 @@ namespace WebAPI_StudentList.Controllers
             }
         }
 
+        [Authorize(Roles = AppRole.Admin)]
         [HttpPost]
         public async Task<ActionResult> CreateStudent(StudentModel model)
         {
@@ -61,6 +64,7 @@ namespace WebAPI_StudentList.Controllers
             }
         }
 
+        [Authorize(Roles = AppRole.Admin)]
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateStudent(string id, StudentModel model)
         {
@@ -75,6 +79,7 @@ namespace WebAPI_StudentList.Controllers
             return BadRequest("Lỗi không cập nhật được sinh viên !");
         }
 
+        [Authorize(Roles = AppRole.Admin)]
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteStudent(string id)
         {

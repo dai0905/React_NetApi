@@ -1,3 +1,27 @@
+//import auth from "./auth";
+
+axios.interceptors.response.use(
+    response => response,
+    async error => {
+        const originalRequest = error.config;
+
+        if (error.response && error.response.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+            try {
+                const newToken = await window.auth.refreshToken();
+                localStorage.setItem("accessToken", newToken);
+                setToken(newToken); // Cập nhật lại state token
+                originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
+                return axios(originalRequest);
+            } catch (refreshError) {
+                console.error("Làm mới token thất bại:", refreshError);
+                window.auth.signOut();
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
 
 let KHOA_LIST = [];
 
@@ -53,12 +77,12 @@ function StudentTable({ students, handleDelete, handleEdit, selectedStudents, ha
                 </tbody>  
             </table>
             <div>
-                <button hidden={page == 1} onClick={() => setPage(1)}>Trang đầu</button>
+                {/* <button onClick={() => setPage(1)}>Trang đầu</button>  */}
                 {pages.map(num => (
                     <button key={num} onClick={() => setPage(num)} 
                         style={{ fontWeight: page == num ? "bold" : "normal" }} >{num}</button>
                 ))}
-                <button hidden={page == totalPage} onClick={() => setPage(totalPage)}>Trang cuối</button>
+                {/* <button onClick={() => setPage(totalPage)}>Trang cuối</button> */}
             </div>
         </div>
     );
@@ -112,6 +136,17 @@ function App() {
     const [selectedStudents, setSelectedStudents] = React.useState([]);
     const [page, setPage] = React.useState(1);
     const [totalPage, setTotalPage] = React.useState(1);
+    const [userRole, setUserRole] = React.useState(null);
+    const [token, setToken] = React.useState(localStorage.getItem("accessToken"));
+
+    React.useEffect(() => {
+        if (!token) {
+            window.location.href = "index.html";
+        } else {
+            const role = window.auth.getRole();
+            setUserRole(role);
+        }
+    }, [token]);
 
     React.useEffect(() => {
         fetchStudents(search, page);
@@ -148,8 +183,10 @@ function App() {
         }
 
         try {
+            const config = { headers: { Authorization: `Bearer ${token}` } };
             if (form.isEditing) {
-                await axios.put(`https://localhost:7006/api/Student/${form.maSinhVien}`, form);
+
+                await axios.put(`https://localhost:7006/api/Student/${form.maSinhVien}`, form, config);
                 fetchStudents(search, page);
             } else {
 
@@ -158,7 +195,7 @@ function App() {
                     return;
                 }
 
-                await axios.post("https://localhost:7006/api/Student", form);
+                await axios.post("https://localhost:7006/api/Student", form, config);
                 fetchStudents(search, page);
             }
 
@@ -172,7 +209,9 @@ function App() {
     const handleDelete = async (maSinhVien) => {
         if (window.confirm("Bạn có chắc muốn xóa sinh viên này?")) {
             try {
-                await axios.delete(`https://localhost:7006/api/Student/${maSinhVien}`);
+                await axios.delete(`https://localhost:7006/api/Student/${maSinhVien}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
                 setSinhViens(sinhViens.filter(sv => sv.maSinhVien !== maSinhVien));
             } catch (error) {
                 console.error("Lỗi khi xóa sinh viên", error);
@@ -190,7 +229,9 @@ function App() {
         if (window.confirm("Bạn có chắc chắn muốn xóa các sinh viên đã chọn không?")) {
             try {
                 await Promise.all(
-                    selectedStudents.map(sv => axios.delete(`https://localhost:7006/api/Student/${sv}`))
+                    selectedStudents.map(sv => axios.delete(`https://localhost:7006/api/Student/${sv}`, {
+                        headers: { Authorization: `Bearer ${token}` }
+                    }))
                 );
     
                 setSinhViens(prevSinhViens => prevSinhViens.filter(sv => !selectedStudents.includes(sv.maSinhVien)));
@@ -221,8 +262,19 @@ function App() {
         setForm({ maSinhVien: "", tenSinhVien: "", ngaySinh: "", gioiTinh: "", maKhoa: "", isEditing: false });
     };
 
+    const handleLogout = () => {
+        window.auth.signOut();
+        setUserRole(null);
+        window.location.href = "index.html";
+    };
+
+    if (!token) {
+        return null;
+    }
+
     return (
         <div>
+            {userRole != null && <button onClick={handleLogout}>Đăng xuất</button>}
             <SearchBar search={search} setSearch={setSearch} handleSearch={handleSearch} />
             <StudentTable students={sinhViens} handleDelete={handleDelete} handleEdit={handleEdit} selectedStudents={selectedStudents} 
             handleCheckboxChange={handleCheckboxChange} page={page} setPage={setPage} totalPage={totalPage} />
