@@ -13,6 +13,6 @@ namespace WebAPI_StudentList.Data
         [MaxLength(50)]
         public string? TenKhoa { get; set; }
 
-        public virtual ICollection<Student> SinhVien { get; set; } = new List<Student>();
+        public virtual ICollection<Student> Students { get; set; } = new List<Student>();
     }
 }

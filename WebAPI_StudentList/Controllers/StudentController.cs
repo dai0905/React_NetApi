@@ -1,6 +1,8 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using WebAPI.Helpers;
 using WebAPI_StudentList.Data;
 using WebAPI_StudentList.Models;
 
@@ -20,12 +22,25 @@ namespace WebAPI_StudentList.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<StudentModel>>> getAllStudent()
+        public async Task<ActionResult<List<StudentModel>>> getAllStudent(string? keyword, int page=1, int pageSize=7)
         {
             try
             {
-                var students = await db.Students.ToListAsync();
-                return Ok( _mapper.Map<List<StudentModel>>(students));
+                var query = db.Students.AsQueryable();
+                if (!string.IsNullOrWhiteSpace(keyword))
+                {
+                    query = query.Where(s => s.MaSinhVien!.Contains(keyword) || s.TenSinhVien!.Contains(keyword)
+                    || s.MaKhoaNavigation!.TenKhoa!.Contains(keyword));
+                }
+
+                var totalStudent = await query.CountAsync();
+                var students = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+                var studentModel = _mapper.Map<List<StudentModel>>(students);
+                return Ok(new
+                {
+                    students = studentModel,
+                    totalPage = (int)Math.Ceiling(totalStudent / (double)pageSize)
+                });
             }
             catch (Exception ex) 
             {
@@ -33,6 +48,7 @@ namespace WebAPI_StudentList.Controllers
             }
         }
 
+        [Authorize(Roles = AppRole.Admin)]
         [HttpPost]
         public async Task<ActionResult> CreateStudent(StudentModel model)
         {
@@ -48,6 +64,7 @@ namespace WebAPI_StudentList.Controllers
             }
         }
 
+        [Authorize(Roles = AppRole.Admin)]
         [HttpPut("{id}")]
         public async Task<ActionResult> UpdateStudent(string id, StudentModel model)
         {
@@ -62,6 +79,7 @@ namespace WebAPI_StudentList.Controllers
             return BadRequest("Lỗi không cập nhật được sinh viên !");
         }
 
+        [Authorize(Roles = AppRole.Admin)]
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteStudent(string id)
         {
@@ -74,23 +92,6 @@ namespace WebAPI_StudentList.Controllers
             }
 
             return BadRequest("Không xóa được sinh viên !");
-        }
-
-        [HttpGet("search")]
-        public async Task<ActionResult<List<StudentModel>>> search(string? keyword)
-        {
-            var query = db.Students.AsQueryable();
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                query =  query.Where(s => s.MaSinhVien!.Contains(keyword) || s.TenSinhVien!.Contains(keyword)
-                || s.MaKhoaNavigation!.TenKhoa!.Contains(keyword));
-            }
-
-            var students = await query.ToListAsync();
-
-            return students.Any()
-                ? Ok(_mapper.Map<List<StudentModel>>(students))
-                : NotFound("Không tìm thấy sinh viên thỏa mãn keyword!");
         }
     }
 }
